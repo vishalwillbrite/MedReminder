@@ -68,6 +68,19 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'OK', message: 'MedReminder PWA API server is operational' });
 });
 
+// Serve frontend React production build in production or when client/dist exists
+const clientDistPath = path.join(__dirname, '../client/dist');
+app.use(express.static(clientDistPath));
+
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
+    return next();
+  }
+  res.sendFile(path.join(clientDistPath, 'index.html'), (err) => {
+    if (err) next();
+  });
+});
+
 // Error handling middleware
 app.use(notFound);
 app.use(errorHandler);
