@@ -10,7 +10,18 @@ const getTodayString = (dateObj = new Date()) => {
   return `${year}-${month}-${day}`;
 };
 
-// Helper: Calculate streak (consecutive days with adherence >= 80%)
+// Convert 24h "HH:mm" to 12h "hh:mm AM/PM"
+const format12Hour = (time24) => {
+  if (!time24) return '';
+  const [hStr, mStr] = time24.split(':');
+  let h = parseInt(hStr, 10);
+  const period = h >= 12 ? 'PM' : 'AM';
+  h = h % 12;
+  if (h === 0) h = 12;
+  return `${String(h).padStart(2, '0')}:${mStr || '00'} ${period}`;
+};
+
+// Helper: Calculate streak (consecutive days with adherence >= 75%)
 const calculateStreaks = async (userId) => {
   try {
     const now = new Date();
@@ -77,23 +88,36 @@ const getDashboardAnalytics = async (req, res) => {
     const todayStr = getTodayString();
     const now = new Date();
 
-    // 1. Total Medicines & Prescriptions Breakdown
+    // 1. Total Medicines & Active Prescriptions
     const totalMedicines = await Medicine.countDocuments({ user: userId });
-    const activeMedicinesCount = await Medicine.countDocuments({ user: userId, status: 'Active' });
+    const activeMedicinesList = await Medicine.find({ user: userId, status: 'Active' }).sort({ name: 1 });
     const completedMedicinesCount = await Medicine.countDocuments({ user: userId, status: 'Completed' });
     const totalRemindersCount = await Reminder.countDocuments({ user: userId });
 
     // 2. Today's Reminders Breakdown & Timeline Schedule
-    const todayReminders = await Reminder.find({ user: userId, dateString: todayStr })
+    const todayRemindersRaw = await Reminder.find({ user: userId, dateString: todayStr })
       .populate('medicine')
       .sort({ timeSlot: 1 });
 
-    const todayTotal = todayReminders.length;
-    const completedToday = todayReminders.filter((r) => r.status === 'Taken').length;
-    const missedToday = todayReminders.filter((r) => r.status === 'Missed').length;
-    const upcomingToday = todayReminders.filter((r) => r.status === 'Pending').length;
+    const todaySchedule = todayRemindersRaw.map((r) => ({
+      _id: r._id,
+      medicine: r.medicine,
+      medicineName: r.medicine ? r.medicine.name : 'Medicine',
+      dosage: r.dosage || (r.medicine ? r.medicine.dosage : ''),
+      foodTiming: r.foodTiming || (r.medicine ? r.medicine.foodTiming : ''),
+      timeSlot: r.timeSlot,
+      formattedTime: format12Hour(r.timeSlot),
+      status: r.status,
+      scheduledTime: r.scheduledTime,
+      image: r.medicine ? r.medicine.image : '',
+    }));
 
-    // Adherence Rate Calculation
+    const todayReminders = todaySchedule.length;
+    const takenToday = todaySchedule.filter((r) => r.status === 'Taken').length;
+    const missedToday = todaySchedule.filter((r) => r.status === 'Missed').length;
+    const upcomingToday = todaySchedule.filter((r) => r.status === 'Pending').length;
+
+    // Overall Adherence Rate Calculation
     const totalHistoricalReminders = await Reminder.countDocuments({ user: userId });
     const totalTakenHistorical = await Reminder.countDocuments({ user: userId, status: 'Taken' });
     const overallAdherenceRate =
@@ -104,8 +128,8 @@ const getDashboardAnalytics = async (req, res) => {
     // 3. Streak Metrics
     const streakData = await calculateStreaks(userId);
 
-    // 4. Weekly Breakdown (Mon - Sun / Last 7 Days)
-    const weeklyData = [];
+    // 4. Weekly Adherence Breakdown (Past 7 Days Mon - Sun)
+    const weeklyAdherence = [];
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
     for (let i = 6; i >= 0; i--) {
@@ -120,7 +144,7 @@ const getDashboardAnalytics = async (req, res) => {
       const scheduled = dayReminders.length;
       const adherence = scheduled > 0 ? Math.round((taken / scheduled) * 100) : 100;
 
-      weeklyData.push({
+      weeklyAdherence.push({
         day: dayName,
         date: dateStr,
         scheduled,
@@ -130,17 +154,30 @@ const getDashboardAnalytics = async (req, res) => {
       });
     }
 
-    // 5. Monthly Trend Breakdown (Past 4 Weeks)
-    const monthlyData = [];
+    // 5. Monthly Adherence Overview (Past 30 Days)
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const monthlyReminders = await Reminder.find({
+      user: userId,
+      scheduledTime: { $gte: thirtyDaysAgo, $lte: now },
+    });
+
+    const monthlyScheduled = monthlyReminders.length;
+    const monthlyTaken = monthlyReminders.filter((r) => r.status === 'Taken').length;
+    const monthlyMissed = monthlyReminders.filter((r) => r.status === 'Missed').length;
+    const monthlyAdherenceRate =
+      monthlyScheduled > 0 ? Math.round((monthlyTaken / monthlyScheduled) * 100) : 100;
+
+    // Monthly breakdown by 4 weeks
+    const monthlyWeeks = [];
     for (let w = 3; w >= 0; w--) {
       const weekStart = new Date(now);
       weekStart.setDate(weekStart.getDate() - (w * 7 + 6));
       const weekEnd = new Date(now);
       weekEnd.setDate(weekEnd.getDate() - w * 7);
 
-      const weekReminders = await Reminder.find({
-        user: userId,
-        scheduledTime: { $gte: weekStart, $lte: weekEnd },
+      const weekReminders = monthlyReminders.filter((r) => {
+        const t = new Date(r.scheduledTime);
+        return t >= weekStart && t <= weekEnd;
       });
 
       const taken = weekReminders.filter((r) => r.status === 'Taken').length;
@@ -148,7 +185,7 @@ const getDashboardAnalytics = async (req, res) => {
       const scheduled = weekReminders.length;
       const adherence = scheduled > 0 ? Math.round((taken / scheduled) * 100) : 100;
 
-      monthlyData.push({
+      monthlyWeeks.push({
         week: `Week ${4 - w}`,
         scheduled,
         taken,
@@ -157,41 +194,71 @@ const getDashboardAnalytics = async (req, res) => {
       });
     }
 
-    // 6. Next Upcoming Pending Reminders with Countdown
-    const upcomingRemindersRaw = await Reminder.find({
+    const monthlyAdherence = {
+      totalScheduled: monthlyScheduled,
+      totalTaken: monthlyTaken,
+      totalMissed: monthlyMissed,
+      adherenceRate: monthlyAdherenceRate,
+      weeks: monthlyWeeks,
+    };
+
+    // 6. Next Upcoming Pending Reminder with Live Countdown
+    const nextUpcomingRaw = await Reminder.findOne({
       user: userId,
       status: 'Pending',
       scheduledTime: { $gte: now },
     })
       .populate('medicine')
-      .sort({ scheduledTime: 1 })
-      .limit(5);
+      .sort({ scheduledTime: 1 });
 
-    const upcoming = upcomingRemindersRaw.map((r) => ({
+    const nextReminder = nextUpcomingRaw
+      ? {
+          _id: nextUpcomingRaw._id,
+          medicine: nextUpcomingRaw.medicine,
+          medicineName: nextUpcomingRaw.medicine ? nextUpcomingRaw.medicine.name : 'Medicine',
+          dosage: nextUpcomingRaw.dosage || (nextUpcomingRaw.medicine ? nextUpcomingRaw.medicine.dosage : ''),
+          timeSlot: nextUpcomingRaw.timeSlot,
+          formattedTime: format12Hour(nextUpcomingRaw.timeSlot),
+          scheduledTime: nextUpcomingRaw.scheduledTime,
+          timeRemaining: getTimeRemainingString(nextUpcomingRaw.scheduledTime),
+        }
+      : null;
+
+    // 7. Upcoming Reminders List (Next 5-10 pending doses sorted chronologically)
+    const upcomingRemindersRaw = await Reminder.find({
+      user: userId,
+      status: 'Pending',
+    })
+      .populate('medicine')
+      .sort({ scheduledTime: 1 })
+      .limit(10);
+
+    const upcomingReminders = upcomingRemindersRaw.map((r) => ({
       _id: r._id,
       medicine: r.medicine,
       medicineName: r.medicine ? r.medicine.name : 'Medicine',
       dosage: r.dosage || (r.medicine ? r.medicine.dosage : ''),
       timeSlot: r.timeSlot,
+      formattedTime: format12Hour(r.timeSlot),
+      dateString: r.dateString,
       scheduledTime: r.scheduledTime,
+      status: r.status,
       timeRemaining: getTimeRemainingString(r.scheduledTime),
     }));
 
-    // 7. Recent Activity Logs (Top 10)
+    // 8. Recent Activity Logs (Top 10)
     const recentActivity = await ActivityLog.find({ user: userId })
       .sort({ createdAt: -1 })
       .limit(10);
 
-    // 8. Notification Push Status
+    // 9. Notification Push Status
     const subCount = await PushSubscription.countDocuments({ user: userId });
 
     res.json({
       summary: {
         totalMedicines,
-        activeMedicines: activeMedicinesCount,
-        completedMedicines: completedMedicinesCount,
-        todayTotal,
-        completedToday,
+        todayReminders,
+        takenToday,
         missedToday,
         upcomingToday,
         adherenceRate: overallAdherenceRate,
@@ -199,11 +266,13 @@ const getDashboardAnalytics = async (req, res) => {
         bestStreak: streakData.bestStreak,
         totalReminders: totalRemindersCount,
       },
-      today: todayReminders,
-      weekly: weeklyData,
-      monthly: monthlyData,
+      todaySchedule,
+      nextReminder,
+      weeklyAdherence,
+      monthlyAdherence,
       streak: streakData,
-      upcoming,
+      activeMedicines: activeMedicinesList,
+      upcomingReminders,
       recentActivity,
       notificationStatus: {
         pushEnabled: subCount > 0,
@@ -215,7 +284,6 @@ const getDashboardAnalytics = async (req, res) => {
   }
 };
 
-// Export both getDashboardData and getDashboardAnalytics
 module.exports = {
   getDashboardData: getDashboardAnalytics,
   getDashboardAnalytics,
