@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MedReminder - You are Offline</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        background-color: #0f172a;
+        color: #f8fafc;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        text-align: center;
+      }
+      .card {
+        background-color: #1e293b;
+        padding: 2.5rem;
+        border-radius: 1.5rem;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+        max-width: 400px;
+        margin: 1rem;
+        border: 1px solid #334155;
+      }
+      .logo {
+        width: 80px;
+        height: 80px;
+        margin-bottom: 1.5rem;
+      }
+      h1 {
+        font-size: 1.5rem;
+        font-weight: 800;
+        margin-bottom: 0.5rem;
+        color: #38bdf8;
+      }
+      p {
+        font-size: 0.875rem;
+        color: #94a3b8;
+        line-height: 1.5;
+        margin-bottom: 1.5rem;
+      }
+      button {
+        background: linear-gradient(135deg, #00a5e5, #0284c7);
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        font-size: 0.875rem;
+        font-weight: 700;
+        border-radius: 1rem;
+        cursor: pointer;
+        transition: transform 0.2s, opacity 0.2s;
+      }
+      button:hover {
+        opacity: 0.9;
+        transform: translateY(-2px);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <img src="/logo.svg" alt="MedReminder Logo" class="logo" />
+      <h1>Offline Mode Active</h1>
+      <p>
+        Your network connection appears to be offline. Don't worry! Your cached medication schedules remain saved on this device.
+      </p>
+      <button onclick="window.location.reload()">Retry Connection</button>
+    </div>
+  </body>
+</html>

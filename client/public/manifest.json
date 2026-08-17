@@ -1,0 +1,28 @@
+{
+  "name": "MedReminder - Smart Pill & Schedule Tracker",
+  "short_name": "MedReminder",
+  "description": "Intelligent PWA Medication & Health Management Dashboard with Web Push Reminders.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#00a5e5",
+  "theme_color": "#00a5e5",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/logo.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}
