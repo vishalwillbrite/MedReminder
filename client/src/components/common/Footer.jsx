@@ -7,7 +7,6 @@ const Footer = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 dark:text-slate-400 gap-4">
         <div className="flex items-center space-x-2">
           <Pill className="w-4 h-4 text-brand-500" />
-          <span className="font-semibold text-slate-700 dark:text-slate-300">MedReminder</span>
           <span>© {new Date().getFullYear()} All rights reserved.</span>
         </div>
         <div className="flex items-center space-x-1">
