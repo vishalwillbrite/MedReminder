@@ -12,7 +12,6 @@ import {
   X,
   Bell,
   Download,
-  HeartPulse,
 } from 'lucide-react';
 import { downloadMedicinesCSV } from '../../utils/exportUtils';
 import { toast } from 'react-hot-toast';
@@ -102,17 +101,6 @@ const Sidebar = ({ isMobileOpen, onCloseMobile }) => {
               <Download className="w-4 h-4 text-sky-500" />
               <span>Export Prescriptions CSV</span>
             </button>
-
-            {/* Sidebar widget / banner */}
-            <div className="p-3 rounded-2xl bg-gradient-to-br from-sky-500/10 via-teal-500/10 to-cyan-500/10 border border-sky-200/40 dark:border-sky-900/40">
-              <div className="flex items-center space-x-2 text-sky-600 dark:text-sky-400 mb-1">
-                <HeartPulse className="w-4 h-4 animate-pulse" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">Web Push & PWA</span>
-              </div>
-              <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
-                Background cron syncs every minute with browser Web Push notifications.
-              </p>
-            </div>
           </div>
         </div>
       </aside>
